@@ -7,11 +7,13 @@ import cors from "cors";
 dotenv.config();
 
 const app = express();
+
 app.use(
   cors({
     origin: "*",
   })
 );
+
 app.use(express.json());
 
 app.post("/api/message", async (req: Request, res: Response) => {
@@ -44,12 +46,9 @@ app.post("/api/message", async (req: Request, res: Response) => {
 
 const port = Number(process.env.PORT) || 3000;
 
-console.log(`API listening on http://localhost:${port}`);
-
 if (require.main === module) {
   app.listen(port);
 }
 
-// Exported for serverless platforms (e.g., Vercel/Netlify functions)
 export const handler = serverless(app);
 export default app;
