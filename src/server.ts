@@ -18,6 +18,11 @@ app.use(
 // NOTE: default is ~100kb which can be too small for large docs/notebook payloads
 app.use(express.json({ limit: "5mb" }));
 
+// Health check (useful for deployment verification)
+app.get("/api/health", (_req: Request, res: Response) => {
+  return res.status(200).json({ ok: true });
+});
+
 app.post("/api/message", async (req: Request, res: Response) => {
   const { message } = req.body ?? {};
 
@@ -71,6 +76,22 @@ app.get("/api/docs/pages/:id", async (req: Request, res: Response) => {
 });
 
 app.put("/api/docs/pages/:id", async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "id is required" });
+
+    const page = await upsertDocPage(id, req.body);
+    return res.status(200).json({ page });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to update page.";
+    return res.status(400).json({ error: message });
+  }
+});
+
+// Some platforms/proxies are more permissive with POST than PUT.
+// This alias lets you update pages with POST as well.
+app.post("/api/docs/pages/:id", async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || "").trim();
     if (!id) return res.status(400).json({ error: "id is required" });
