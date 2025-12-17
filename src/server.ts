@@ -3,6 +3,7 @@ import axios from "axios";
 import serverless from "serverless-http";
 import dotenv from "dotenv";
 import cors from "cors";
+import { getDocPage, listDocPages, upsertDocPage } from "./docsStore";
 
 dotenv.config();
 
@@ -14,7 +15,8 @@ app.use(
   })
 );
 
-app.use(express.json());
+// NOTE: default is ~100kb which can be too small for large docs/notebook payloads
+app.use(express.json({ limit: "5mb" }));
 
 app.post("/api/message", async (req: Request, res: Response) => {
   const { message } = req.body ?? {};
@@ -41,6 +43,44 @@ app.post("/api/message", async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ error: "Failed to forward message to Discord" });
+  }
+});
+
+// Dynamic docs API
+app.get("/api/docs/pages", async (_req: Request, res: Response) => {
+  try {
+    const pages = await listDocPages();
+    return res.status(200).json({ pages });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to list pages." });
+  }
+});
+
+app.get("/api/docs/pages/:id", async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "id is required" });
+
+    const page = await getDocPage(id);
+    if (!page) return res.status(404).json({ error: "Page not found" });
+
+    return res.status(200).json({ page });
+  } catch (_err) {
+    return res.status(500).json({ error: "Failed to fetch page." });
+  }
+});
+
+app.put("/api/docs/pages/:id", async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "id is required" });
+
+    const page = await upsertDocPage(id, req.body);
+    return res.status(200).json({ page });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to update page.";
+    return res.status(400).json({ error: message });
   }
 });
 
